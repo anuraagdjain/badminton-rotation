@@ -6,7 +6,12 @@ export function startGame(participants: string[], courtCount: number): GameState
 }
 
 export function rotateGame(state: GameState): GameState {
-  const nextRestIndex = (state.restIndex + 1) % state.participants.length;
+  const maxCapacity = state.courtCount * 4;
+  const excess = Math.max(0, state.participants.length - maxCapacity);
+  const isOdd = (state.participants.length - excess) % 2 === 1;
+  const restingCount = excess + (isOdd ? 1 : 0);
+
+  const nextRestIndex = (state.restIndex + restingCount) % state.participants.length;
   const previousSingles = state.courts
     .filter((c) => c.type === "singles")
     .flatMap((c) => c.players);
@@ -18,15 +23,20 @@ export function resetGame(): GameState | null {
 }
 
 function buildState(sorted: string[], restIndex: number, previousSingles: string[], courtCount: number): GameState {
-  const totalCapacity = courtCount * 4;
-  const restingCount = Math.max(0, sorted.length - totalCapacity);
-  const resting = restingCount > 0 ? sorted[restIndex] : null;
+  const maxCapacity = courtCount * 4;
+  const excess = Math.max(0, sorted.length - maxCapacity);
+  const isOdd = (sorted.length - excess) % 2 === 1;
+  const restingCount = excess + (isOdd ? 1 : 0);
 
-  const players = restingCount > 0
-    ? sorted.filter((_, i) => i !== restIndex)
-    : [...sorted];
+  const restingPlayers: string[] = [];
+  for (let i = 0; i < restingCount; i++) {
+    restingPlayers.push(sorted[(restIndex + i) % sorted.length]);
+  }
 
-  const courts = assignCourts(players, previousSingles, courtCount);
+  const players = sorted.filter((p) => !restingPlayers.includes(p));
+
+  const courtSizes = calculateCourtSizes(players.length, courtCount);
+  const courts = assignCourts(players, previousSingles, courtSizes);
 
   const newSinglesPlayers = courts
     .filter((c) => c.type === "singles")
@@ -35,12 +45,25 @@ function buildState(sorted: string[], restIndex: number, previousSingles: string
   return {
     participants: sorted,
     courts,
-    resting,
+    resting: restingPlayers.length > 0 ? restingPlayers.join(", ") : null,
     restIndex,
     rotationCount: restingCount > 0 ? restIndex : 0,
     previousSinglesPlayers: newSinglesPlayers,
     courtCount,
   };
+}
+
+function calculateCourtSizes(playerCount: number, courtCount: number): number[] {
+  const sizes: number[] = new Array(courtCount).fill(0);
+  let remaining = playerCount;
+
+  for (let i = 0; i < courtCount && remaining > 0; i++) {
+    const size = Math.min(4, remaining);
+    sizes[i] = size === 3 ? 2 : size;
+    remaining -= sizes[i];
+  }
+
+  return sizes;
 }
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -52,11 +75,19 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-function assignCourts(players: string[], previousSingles: string[], courtCount: number): Court[] {
-  const courts: Court[] = Array.from({ length: courtCount }, () => ({
+function assignCourts(players: string[], previousSingles: string[], courtSizes: number[]): Court[] {
+  const courts: Court[] = courtSizes.map((size) => ({
     players: [],
-    type: "doubles" as const,
+    type: size === 2 ? "singles" : "doubles",
   }));
+
+  const singlesCourtIndices = courts
+    .map((c, i) => (c.type === "singles" ? i : -1))
+    .filter((i) => i !== -1);
+
+  const doublesCourtIndices = courts
+    .map((c, i) => (c.type === "doubles" ? i : -1))
+    .filter((i) => i !== -1);
 
   const mustSkipSingles = players.filter((p) => previousSingles.includes(p));
   const eligibleForAny = players.filter((p) => !previousSingles.includes(p));
@@ -64,20 +95,31 @@ function assignCourts(players: string[], previousSingles: string[], courtCount: 
   const shuffledEligible = shuffleArray(eligibleForAny);
   const shuffledRestricted = shuffleArray(mustSkipSingles);
 
-  let playerIndex = 0;
+  let eligibleIndex = 0;
 
-  for (let courtIdx = 0; courtIdx < courtCount; courtIdx++) {
-    const remainingPlayers = [...shuffledEligible.slice(playerIndex), ...shuffledRestricted];
-    const playersForThisCourt = remainingPlayers.slice(0, 4);
+  for (const idx of singlesCourtIndices) {
+    const size = courtSizes[idx];
+    const courtPlayers: string[] = [];
+    for (let i = 0; i < size && eligibleIndex < shuffledEligible.length; i++) {
+      courtPlayers.push(shuffledEligible[eligibleIndex]);
+      eligibleIndex++;
+    }
+    courts[idx].players = courtPlayers;
+  }
 
-    if (playersForThisCourt.length === 0) break;
+  const remainingEligible = shuffledEligible.slice(eligibleIndex);
+  const allRemaining = shuffleArray([...remainingEligible, ...shuffledRestricted]);
 
-    courts[courtIdx].players = playersForThisCourt;
-    courts[courtIdx].type = playersForThisCourt.length === 2 ? "singles" : "doubles";
+  let remainingIndex = 0;
 
-    playerIndex += playersForThisCourt.length;
-
-    if (playerIndex >= shuffledEligible.length + shuffledRestricted.length) break;
+  for (const idx of doublesCourtIndices) {
+    const size = courtSizes[idx];
+    const courtPlayers: string[] = [];
+    for (let i = 0; i < size && remainingIndex < allRemaining.length; i++) {
+      courtPlayers.push(allRemaining[remainingIndex]);
+      remainingIndex++;
+    }
+    courts[idx].players = courtPlayers;
   }
 
   return courts;

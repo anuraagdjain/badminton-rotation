@@ -23,7 +23,7 @@ export function GameSetup({ onStart }: GameSetupProps) {
   const handleCourtCountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const num = parseInt(courtCount, 10);
-    if (num >= 1 && num <= 5) {
+    if (num >= 1 && num <= 3) {
       setNames(Array(parseInt(participantCount, 10)).fill(""));
       setStep("names");
     }
@@ -74,11 +74,11 @@ export function GameSetup({ onStart }: GameSetupProps) {
       <div className="flex flex-col items-center gap-4 p-4">
         <h2 className="text-xl font-bold">Number of Courts</h2>
         <form onSubmit={handleCourtCountSubmit} className="flex flex-col gap-2">
-          <label className="text-sm">How many courts? (1-5):</label>
+          <label className="text-sm">How many courts? (1-3):</label>
           <input
             type="number"
             min={1}
-            max={5}
+            max={3}
             value={courtCount}
             onChange={(e) => setCourtCount(e.target.value)}
             className="border p-2 rounded w-full"
