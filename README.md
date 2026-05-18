@@ -58,13 +58,15 @@ A simple web app to manage badminton court rotations for recreational games.
 
 ## Tech Stack
 
-- **Next.js 14** (App Router)
-- **React 18**
+- **Next.js 15** (App Router)
+- **React 19**
 - **TypeScript**
 - **Tailwind CSS**
 - **Vitest** (testing)
 
 ## Getting Started
+
+Requires Node.js 22+ (use `nvm use` if you have nvm installed).
 
 ```bash
 nvm use
@@ -80,9 +82,14 @@ npm test
 
 ## Deploy to Cloudflare Pages
 
-```bash
-npm install -D @cloudflare/next-on-pages wrangler
-npm run deploy
-```
+1. Push code to GitHub
+2. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → Create → Pages
+3. Connect your GitHub repo
+4. Build settings:
+   - **Framework preset**: Next.js
+   - **Build command**: `npm run build`
+   - **Build output directory**: `.vercel/output/static`
+   - **Environment variables**: `NODE_VERSION=22.20.0`
+5. Deploy
 
-See [Cloudflare Pages docs](https://developers.cloudflare.com/pages/framework-guides/deploy-a-nextjs-site/) for setup.
+Cloudflare auto-deploys on every push to `main`.
