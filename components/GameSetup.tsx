@@ -3,18 +3,29 @@
 import { useState } from "react";
 
 type GameSetupProps = {
-  onStart: (participants: string[]) => void;
+  onStart: (participants: string[], courtCount: number) => void;
 };
 
 export function GameSetup({ onStart }: GameSetupProps) {
-  const [count, setCount] = useState("");
+  const [step, setStep] = useState<"count" | "courts" | "names">("count");
+  const [participantCount, setParticipantCount] = useState("");
+  const [courtCount, setCourtCount] = useState("");
   const [names, setNames] = useState<string[]>([]);
 
-  const handleCountSubmit = (e: React.FormEvent) => {
+  const handleParticipantCountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const num = parseInt(count, 10);
+    const num = parseInt(participantCount, 10);
     if (num >= 2 && num <= 20) {
-      setNames(Array(num).fill(""));
+      setStep("courts");
+    }
+  };
+
+  const handleCourtCountSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseInt(courtCount, 10);
+    if (num >= 1 && num <= 5) {
+      setNames(Array(parseInt(participantCount, 10)).fill(""));
+      setStep("names");
     }
   };
 
@@ -28,22 +39,48 @@ export function GameSetup({ onStart }: GameSetupProps) {
     e.preventDefault();
     const filtered = names.filter((n) => n.trim() !== "");
     if (filtered.length >= 2) {
-      onStart(filtered);
+      onStart(filtered, parseInt(courtCount, 10));
     }
   };
 
-  if (names.length === 0) {
+  if (step === "count") {
     return (
       <div className="flex flex-col items-center gap-4 p-4">
         <h2 className="text-xl font-bold">Start Game</h2>
-        <form onSubmit={handleCountSubmit} className="flex flex-col gap-2">
+        <form onSubmit={handleParticipantCountSubmit} className="flex flex-col gap-2">
           <label className="text-sm">Number of participants (2-20):</label>
           <input
             type="number"
             min={2}
             max={20}
-            value={count}
-            onChange={(e) => setCount(e.target.value)}
+            value={participantCount}
+            onChange={(e) => setParticipantCount(e.target.value)}
+            className="border p-2 rounded w-full"
+            required
+          />
+          <button
+            type="submit"
+            className="bg-black text-white px-4 py-2 rounded"
+          >
+            Next
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  if (step === "courts") {
+    return (
+      <div className="flex flex-col items-center gap-4 p-4">
+        <h2 className="text-xl font-bold">Number of Courts</h2>
+        <form onSubmit={handleCourtCountSubmit} className="flex flex-col gap-2">
+          <label className="text-sm">How many courts? (1-5):</label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            value={courtCount}
+            onChange={(e) => setCourtCount(e.target.value)}
             className="border p-2 rounded w-full"
             required
           />

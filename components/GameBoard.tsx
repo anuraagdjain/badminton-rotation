@@ -12,8 +12,13 @@ export function GameBoard({ state, onRotate, onReset }: GameBoardProps) {
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex flex-col sm:flex-row gap-4">
-        <CourtDisplay court={state.court1} label="Court 1" />
-        <CourtDisplay court={state.court2} label="Court 2" />
+        {state.courts.map((court, index) => (
+          <CourtDisplay
+            key={index}
+            court={court}
+            label={`Court ${index + 1}`}
+          />
+        ))}
       </div>
 
       {state.resting && (

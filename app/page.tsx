@@ -27,8 +27,8 @@ export default function Home() {
     }
   }, [gameState, isLoaded]);
 
-  const handleStart = (participants: string[]) => {
-    setGameState(startGame(participants));
+  const handleStart = (participants: string[], courtCount: number) => {
+    setGameState(startGame(participants, courtCount));
   };
 
   const handleRotate = () => {

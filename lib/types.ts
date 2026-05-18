@@ -5,12 +5,12 @@ export type Court = {
 
 export type GameState = {
   participants: string[];
-  court1: Court;
-  court2: Court;
+  courts: Court[];
   resting: string | null;
   restIndex: number;
   rotationCount: number;
   previousSinglesPlayers: string[];
+  courtCount: number;
 };
 
 export type GameStatus = "setup" | "playing";

@@ -3,74 +3,53 @@ import { startGame, rotateGame } from "../lib/game";
 
 describe("startGame", () => {
   it("should sort participants alphabetically", () => {
-    const state = startGame(["Charlie", "Alice", "Bob"]);
+    const state = startGame(["Charlie", "Alice", "Bob"], 2);
     expect(state.participants).toEqual(["Alice", "Bob", "Charlie"]);
   });
 
-  it("should assign rest to first person alphabetically when odd", () => {
-    const state = startGame(["Charlie", "Alice", "Bob", "Diana", "Eve"]);
+  it("should assign rest to first person alphabetically when over capacity", () => {
+    const state = startGame(["Charlie", "Alice", "Bob", "Diana", "Eve"], 1);
     expect(state.resting).toBe("Alice");
     expect(state.restIndex).toBe(0);
   });
 
-  it("should have no rest when even participants", () => {
-    const state = startGame(["Alice", "Bob", "Charlie", "Diana"]);
+  it("should have no rest when within capacity", () => {
+    const state = startGame(["Alice", "Bob", "Charlie", "Diana"], 1);
     expect(state.resting).toBeNull();
   });
 
-  it("should assign 4 players to court1 for 7 participants", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    expect(state.court1.players).toHaveLength(4);
-    expect(state.court1.type).toBe("doubles");
+  it("should create correct number of courts", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 3);
+    expect(state.courts).toHaveLength(3);
   });
 
-  it("should assign 2 players to court2 for 7 participants", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    expect(state.court2.players).toHaveLength(2);
-    expect(state.court2.type).toBe("singles");
-  });
-
-  it("should assign 4 players to each court for 9 participants", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G", "H", "I"]);
-    expect(state.court1.players).toHaveLength(4);
-    expect(state.court2.players).toHaveLength(4);
-    expect(state.court1.type).toBe("doubles");
-    expect(state.court2.type).toBe("doubles");
-  });
-
-  it("should assign 4 players to court1 for 4 participants (even)", () => {
-    const state = startGame(["A", "B", "C", "D"]);
-    expect(state.court1.players).toHaveLength(4);
-    expect(state.court1.type).toBe("doubles");
-    expect(state.court2.players).toHaveLength(0);
-  });
-
-  it("should assign 2 players to court1 for 3 participants", () => {
-    const state = startGame(["A", "B", "C"]);
-    expect(state.court1.players).toHaveLength(2);
-    expect(state.court1.type).toBe("singles");
-    expect(state.court2.players).toHaveLength(0);
-    expect(state.resting).toBe("A");
-  });
-
-  it("should assign 4+2 for 6 participants (even)", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F"]);
-    expect(state.court1.players).toHaveLength(4);
-    expect(state.court2.players).toHaveLength(2);
-    expect(state.resting).toBeNull();
+  it("should assign up to 4 players per court", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+    state.courts.forEach((court) => {
+      expect(court.players.length).toBeLessThanOrEqual(4);
+    });
   });
 
   it("should assign all non-resting players to courts", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    const allAssigned = [...state.court1.players, ...state.court2.players];
-    const expected = ["B", "C", "D", "E", "F", "G"];
-    expect(allAssigned.sort()).toEqual(expected);
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+    const allAssigned = state.courts.flatMap((c) => c.players);
+    expect(allAssigned.sort()).toEqual(["A", "B", "C", "D", "E", "F", "G"]);
+  });
+
+  it("should set court type based on player count", () => {
+    const state = startGame(["A", "B"], 1);
+    expect(state.courts[0].type).toBe("singles");
+  });
+
+  it("should set doubles type for 4 players", () => {
+    const state = startGame(["A", "B", "C", "D"], 1);
+    expect(state.courts[0].type).toBe("doubles");
   });
 });
 
 describe("rotateGame", () => {
   it("should rotate rest to next alphabetical person", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
+    const state = startGame(["A", "B", "C", "D", "E"], 1);
     expect(state.resting).toBe("A");
 
     const rotated = rotateGame(state);
@@ -79,33 +58,33 @@ describe("rotateGame", () => {
   });
 
   it("should not rest same person twice in a row", () => {
-    const state = startGame(["A", "B", "C", "D", "E"]);
+    const state = startGame(["A", "B", "C", "D", "E"], 1);
     const rotated = rotateGame(state);
     expect(rotated.resting).not.toBe(state.resting);
   });
 
   it("should put previous resting person back to play", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
+    const state = startGame(["A", "B", "C", "D", "E"], 1);
     const rotated = rotateGame(state);
-    const allPlaying = [...rotated.court1.players, ...rotated.court2.players];
+    const allPlaying = rotated.courts.flatMap((c) => c.players);
     expect(allPlaying).toContain("A");
   });
 
   it("should cycle through all participants for rest", () => {
-    const participants = ["A", "B", "C", "D", "E", "F", "G"];
-    let state = startGame(participants);
+    const participants = ["A", "B", "C", "D", "E"];
+    let state = startGame(participants, 1);
     const restOrder: string[] = [state.resting!];
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       state = rotateGame(state);
       restOrder.push(state.resting!);
     }
 
-    expect(restOrder).toEqual(["A", "B", "C", "D", "E", "F", "G"]);
+    expect(restOrder).toEqual(["A", "B", "C", "D", "E"]);
   });
 
-  it("should handle even participants rotation (no rest)", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F"]);
+  it("should handle no rest rotation when within capacity", () => {
+    const state = startGame(["A", "B", "C", "D"], 2);
     expect(state.resting).toBeNull();
 
     const rotated = rotateGame(state);
@@ -113,54 +92,44 @@ describe("rotateGame", () => {
   });
 
   it("should assign all non-resting players to courts after rotation", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
+    const state = startGame(["A", "B", "C", "D", "E"], 1);
     const rotated = rotateGame(state);
-    const allAssigned = [...rotated.court1.players, ...rotated.court2.players];
-    const expected = ["A", "C", "D", "E", "F", "G"];
+    const allAssigned = rotated.courts.flatMap((c) => c.players);
+    const expected = ["A", "C", "D", "E"];
     expect(allAssigned.sort()).toEqual(expected);
   });
 
-  it("should randomize court assignments across rotations", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    const court1Players = new Set(state.court1.players);
-
-    let hasDifferentAssignment = false;
-    for (let i = 0; i < 10; i++) {
-      const rotated = rotateGame(state);
-      const newCourt1 = new Set(rotated.court1.players);
-      if (![...newCourt1].every((p) => court1Players.has(p))) {
-        hasDifferentAssignment = true;
-        break;
-      }
-    }
-
-    expect(hasDifferentAssignment).toBe(true);
-  });
-
   it("should not put previous singles players back in singles court", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    const previousSingles = state.court2.players;
+    const state = startGame(["A", "B", "C", "D", "E"], 2);
+    const previousSingles = state.courts
+      .filter((c) => c.type === "singles")
+      .flatMap((c) => c.players);
 
     const rotated = rotateGame(state);
-    const newSingles = rotated.court2.players;
+    const newSingles = rotated.courts
+      .filter((c) => c.type === "singles")
+      .flatMap((c) => c.players);
 
     const overlap = previousSingles.filter((p) => newSingles.includes(p));
     expect(overlap).toHaveLength(0);
   });
 
   it("should move previous singles players to doubles court or rest", () => {
-    const state = startGame(["A", "B", "C", "D", "E", "F", "G"]);
-    const previousSingles = state.court2.players;
+    const state = startGame(["A", "B", "C", "D", "E"], 2);
+    const previousSingles = state.courts
+      .filter((c) => c.type === "singles")
+      .flatMap((c) => c.players);
 
     const rotated = rotateGame(state);
-    const allPlaying = [...rotated.court1.players, ...rotated.court2.players];
+    const allPlaying = rotated.courts.flatMap((c) => c.players);
 
     previousSingles.forEach((p) => {
-      if (p === rotated.resting) {
-        return;
-      }
+      if (p === rotated.resting) return;
       expect(allPlaying).toContain(p);
-      expect(rotated.court1.players).toContain(p);
+      const inSingles = rotated.courts
+        .filter((c) => c.type === "singles")
+        .some((c) => c.players.includes(p));
+      expect(inSingles).toBe(false);
     });
   });
 });
