@@ -71,6 +71,18 @@ export default function Home() {
           onCancel={() => setShowResetConfirm(false)}
         />
       )}
+
+      <footer className="mt-16 pt-4 border-t border-black text-[13px] text-[#6b6b6b]">
+        Created by{" "}
+        <a
+          href="https://adja.in"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-black underline underline-offset-3 hover:underline-[2px] transition-[text-decoration-thickness]"
+        >
+          Anuraag Jain
+        </a>
+      </footer>
     </div>
   );
 }
