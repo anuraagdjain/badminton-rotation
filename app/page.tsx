@@ -47,8 +47,12 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-4">
-      <h1 className="text-2xl font-bold text-center py-4">Badminton App</h1>
+    <div className="max-w-[980px] mx-auto px-5 sm:px-[32px] py-8 sm:py-12">
+      <header className="border-b-[3px] border-double border-black pb-4 mb-8">
+        <h1 className="text-[18px] font-bold uppercase tracking-[0.03em]">
+          Badminton Rotation
+        </h1>
+      </header>
 
       {gameState ? (
         <GameBoard
@@ -62,11 +66,11 @@ export default function Home() {
 
       {showResetConfirm && (
         <ConfirmDialog
-          message="Are you sure you want to reset? All participants and game data will be lost."
+          message="Reset the game? All participants and court assignments will be cleared."
           onConfirm={handleReset}
           onCancel={() => setShowResetConfirm(false)}
         />
       )}
-    </main>
+    </div>
   );
 }
