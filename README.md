@@ -64,6 +64,10 @@ A simple web app to manage badminton court rotations for recreational games.
 - **Tailwind CSS**
 - **Vitest** (testing)
 
+## Design Inspiration
+
+- [oguzeroglu.dev](https://oguzeroglu.dev)
+
 ## Getting Started
 
 Requires Node.js 22+ (use `nvm use` if you have nvm installed).
