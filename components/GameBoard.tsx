@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { Share2 } from "lucide-react";
 import type { GameState } from "@/lib/types";
+import { buildShareUrl } from "@/lib/share";
 
 type GameBoardProps = {
   state: GameState;
@@ -10,14 +13,34 @@ type GameBoardProps = {
 };
 
 export function GameBoard({ state, onRotate, onReset, onEdit }: GameBoardProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = () => {
+    const url = buildShareUrl(state.participants, state.courtCount);
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const labelClass = "text-[13px] font-bold uppercase tracking-[0.04em] leading-[24px] sm:text-right sm:pr-[28px] sm:pt-9 pt-6 pb-2 sm:pb-0 border-t border-black sm:border-t-0";
   const contentClass = "border-l-0 sm:border-l border-dashed border-black pl-0 sm:pl-[28px] pt-0 sm:pt-9";
 
   return (
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] mb-6">
-        <div className={labelClass}>
-          Courts
+        <div className={`${labelClass} flex items-center gap-2 sm:justify-end`}>
+          <span>Courts</span>
+          <button
+            onClick={handleShare}
+            title="Copy share link"
+            className="relative inline-flex items-center justify-center hover:text-[#6b6b6b] transition-colors"
+          >
+            {copied ? (
+              <span className="text-[11px] font-normal normal-case">Copied!</span>
+            ) : (
+              <Share2 size={14} />
+            )}
+          </button>
         </div>
         <div className={contentClass}>
           <p className="text-[#6b6b6b] mb-4 text-sm">
