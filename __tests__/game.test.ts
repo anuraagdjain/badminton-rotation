@@ -252,4 +252,37 @@ describe("edit participants (restart flow)", () => {
     expect(edited.participants).toEqual(["Alice", "Charlie", "Robert"]);
     expect(edited.rotationCount).toBe(0);
   });
+
+  it("should handle changing court count via restart (2→1)", () => {
+    const state = startGame(["A", "B", "C", "D"], 2);
+    const edited = startGame(state.participants, 1);
+    expect(edited.courtCount).toBe(1);
+    expect(edited.courts).toHaveLength(1);
+    expect(edited.participants).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("should handle changing court count via restart (1→3)", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F"], 1);
+    const edited = startGame(state.participants, 3);
+    expect(edited.courtCount).toBe(3);
+    expect(edited.courts).toHaveLength(3);
+  });
+
+  it("should produce valid court sizes after changing court count", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G", "H"], 1);
+    const edited = startGame(state.participants, 2);
+    edited.courts.forEach((court) => {
+      expect([0, 2, 4]).toContain(court.players.length);
+    });
+  });
+
+  it("should reset rotation when changing court count", () => {
+    const state = startGame(["A", "B", "C", "D", "E"], 2);
+    const rotated = rotateGame(rotateGame(state));
+    expect(rotated.rotationCount).not.toBe(0);
+    const edited = startGame(rotated.participants, 1);
+    expect(edited.rotationCount).toBe(0);
+    expect(edited.restIndex).toBe(0);
+    expect(edited.courtCount).toBe(1);
+  });
 });

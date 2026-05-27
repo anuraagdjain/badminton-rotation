@@ -58,9 +58,9 @@ export function GameManager({ initialParticipants, initialCourtCount }: GameMana
     setShowResetConfirm(false);
   };
 
-  const handleEditParticipants = (participants: string[]) => {
+  const handleEditParticipants = (participants: string[], courtCount: number) => {
     if (gameState) {
-      setGameState(startGame(participants, gameState.courtCount));
+      setGameState(startGame(participants, courtCount));
     }
     setShowEditDialog(false);
   };
@@ -99,6 +99,7 @@ export function GameManager({ initialParticipants, initialCourtCount }: GameMana
       {showEditDialog && gameState && (
         <EditParticipantsDialog
           participants={gameState.participants}
+          courtCount={gameState.courtCount}
           onSave={handleEditParticipants}
           onCancel={() => setShowEditDialog(false)}
         />
