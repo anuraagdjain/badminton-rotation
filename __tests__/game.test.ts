@@ -219,3 +219,37 @@ describe("rotateGame", () => {
     }
   });
 });
+
+describe("edit participants (restart flow)", () => {
+  it("should restart rotation from scratch with edited participants", () => {
+    const initial = startGame(["A", "B", "C", "D", "E"], 2);
+    const afterRotations = rotateGame(rotateGame(initial));
+    const edited = startGame(["A", "C", "D", "E", "F"], afterRotations.courtCount);
+    expect(edited.rotationCount).toBe(0);
+    expect(edited.restIndex).toBe(0);
+    expect(edited.participants).toEqual(["A", "C", "D", "E", "F"]);
+  });
+
+  it("should handle adding players via restart", () => {
+    const state = startGame(["A", "B"], 1);
+    const edited = startGame(["A", "B", "C"], state.courtCount);
+    expect(edited.participants).toHaveLength(3);
+    expect(edited.rotationCount).toBe(0);
+    expect(edited.restIndex).toBe(0);
+  });
+
+  it("should handle removing players via restart", () => {
+    const state = startGame(["A", "B", "C", "D", "E"], 2);
+    const edited = startGame(["A", "B", "C"], state.courtCount);
+    expect(edited.participants).toHaveLength(3);
+    expect(edited.rotationCount).toBe(0);
+    expect(edited.restIndex).toBe(0);
+  });
+
+  it("should handle renaming players via restart", () => {
+    const state = startGame(["Alice", "Bob", "Charlie"], 2);
+    const edited = startGame(["Alice", "Robert", "Charlie"], state.courtCount);
+    expect(edited.participants).toEqual(["Alice", "Charlie", "Robert"]);
+    expect(edited.rotationCount).toBe(0);
+  });
+});

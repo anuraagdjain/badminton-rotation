@@ -6,9 +6,10 @@ type GameBoardProps = {
   state: GameState;
   onRotate: () => void;
   onReset: () => void;
+  onEdit: () => void;
 };
 
-export function GameBoard({ state, onRotate, onReset }: GameBoardProps) {
+export function GameBoard({ state, onRotate, onReset, onEdit }: GameBoardProps) {
   const labelClass = "text-[13px] font-bold uppercase tracking-[0.04em] leading-[24px] sm:text-right sm:pr-[28px] sm:pt-9 pt-6 pb-2 sm:pb-0 border-t border-black sm:border-t-0";
   const contentClass = "border-l-0 sm:border-l border-dashed border-black pl-0 sm:pl-[28px] pt-0 sm:pt-9";
 
@@ -40,6 +41,12 @@ export function GameBoard({ state, onRotate, onReset }: GameBoardProps) {
               className="px-4 py-2 border border-black text-sm font-medium hover:bg-black hover:text-white transition-colors"
             >
               Rotate
+            </button>
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 border border-black text-sm font-medium hover:bg-black hover:text-white transition-colors"
+            >
+              Edit
             </button>
             <button
               onClick={onReset}

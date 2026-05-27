@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { GameSetup } from "@/components/GameSetup";
 import { GameBoard } from "@/components/GameBoard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EditParticipantsDialog } from "@/components/EditParticipantsDialog";
 import { startGame, rotateGame, resetGame } from "@/lib/game";
 import { saveGame, loadGame } from "@/lib/storage";
 import type { GameState } from "@/lib/types";
@@ -11,6 +12,7 @@ import type { GameState } from "@/lib/types";
 export default function Home() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,13 @@ export default function Home() {
     setShowResetConfirm(false);
   };
 
+  const handleEditParticipants = (participants: string[]) => {
+    if (gameState) {
+      setGameState(startGame(participants, gameState.courtCount));
+    }
+    setShowEditDialog(false);
+  };
+
   if (!isLoaded) {
     return null;
   }
@@ -59,6 +68,7 @@ export default function Home() {
           state={gameState}
           onRotate={handleRotate}
           onReset={() => setShowResetConfirm(true)}
+          onEdit={() => setShowEditDialog(true)}
         />
       ) : (
         <GameSetup onStart={handleStart} />
@@ -69,6 +79,14 @@ export default function Home() {
           message="Reset the game? All participants and court assignments will be cleared."
           onConfirm={handleReset}
           onCancel={() => setShowResetConfirm(false)}
+        />
+      )}
+
+      {showEditDialog && gameState && (
+        <EditParticipantsDialog
+          participants={gameState.participants}
+          onSave={handleEditParticipants}
+          onCancel={() => setShowEditDialog(false)}
         />
       )}
 
