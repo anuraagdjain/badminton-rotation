@@ -11,6 +11,7 @@ export type GameState = {
   rotationCount: number;
   previousSinglesPlayers: string[];
   courtCount: number;
+  pairGraph: Record<string, number>;
 };
 
 export type GameStatus = "setup" | "playing";

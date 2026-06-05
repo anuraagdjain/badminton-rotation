@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { startGame, rotateGame } from "../lib/game";
+import { startGame, rotateGame, makePairKey, updatePairGraph } from "../lib/game";
+import type { Court } from "../lib/types";
 
 describe("startGame", () => {
   it("should sort participants alphabetically", () => {
@@ -171,21 +172,13 @@ describe("rotateGame", () => {
     });
   });
 
-  it("should change court 2 players on rotation", () => {
+  it("should change court assignments on rotation", () => {
     const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
-    const court2Players = new Set(state.courts[1]?.players || []);
+    const firstCourt0 = new Set(state.courts[0].players);
 
-    let hasDifferentCourt2 = false;
-    for (let i = 0; i < 10; i++) {
-      const rotated = rotateGame(state);
-      const newCourt2 = new Set(rotated.courts[1]?.players || []);
-      if (![...newCourt2].every((p) => court2Players.has(p))) {
-        hasDifferentCourt2 = true;
-        break;
-      }
-    }
-
-    expect(hasDifferentCourt2).toBe(true);
+    const rotated = rotateGame(state);
+    const court0Changed = rotated.courts[0].players.some(p => !firstCourt0.has(p));
+    expect(court0Changed).toBe(true);
   });
 
   it("should never have courts with 1 or 3 players after rotation", () => {
@@ -284,5 +277,209 @@ describe("edit participants (restart flow)", () => {
     expect(edited.rotationCount).toBe(0);
     expect(edited.restIndex).toBe(0);
     expect(edited.courtCount).toBe(1);
+  });
+});
+
+describe("pairGraph", () => {
+  it("should makePairKey return consistent sorted keys", () => {
+    expect(makePairKey("Alice", "Bob")).toBe("Alice,Bob");
+    expect(makePairKey("Bob", "Alice")).toBe("Alice,Bob");
+    expect(makePairKey("a", "b")).toBe("a,b");
+  });
+
+  it("should record all 6 pair edges from a doubles court on startGame", () => {
+    const state = startGame(["A", "B", "C", "D"], 1);
+    expect(state.pairGraph["A,B"]).toBe(1);
+    expect(state.pairGraph["A,C"]).toBe(1);
+    expect(state.pairGraph["A,D"]).toBe(1);
+    expect(state.pairGraph["B,C"]).toBe(1);
+    expect(state.pairGraph["B,D"]).toBe(1);
+    expect(state.pairGraph["C,D"]).toBe(1);
+    expect(Object.keys(state.pairGraph)).toHaveLength(6);
+  });
+
+  it("should not record pair edges from singles court", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+    const singlesCourt = state.courts.find(c => c.type === "singles");
+    const singlesPlayers = singlesCourt?.players || [];
+    // No pair key between singles players should exist in the graph
+    if (singlesPlayers.length === 2) {
+      expect(state.pairGraph[makePairKey(singlesPlayers[0], singlesPlayers[1])]).toBeUndefined();
+    }
+  });
+
+  it("should increment edge weights on subsequent rotations", () => {
+    let state = startGame(["A", "B", "C", "D"], 1);
+    expect(state.pairGraph["A,B"]).toBe(1);
+
+    state = rotateGame(state);
+    expect(state.pairGraph["A,B"]).toBe(2);
+  });
+
+  it("should accumulate new edges when new pairs form on rotation", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G", "H"], 2);
+    // First game: 12 edges (6 per doubles court)
+    const firstCount = Object.keys(state.pairGraph).length;
+    expect(firstCount).toBe(12);
+
+    // After rotation, new cross-court pairs should add more edges
+    state = rotateGame(state);
+    const secondCount = Object.keys(state.pairGraph).length;
+    expect(secondCount).toBeGreaterThan(firstCount);
+  });
+
+  it("should updatePairGraph correctly from courts", () => {
+    const courts: Court[] = [
+      { players: ["A", "B", "C", "D"], type: "doubles" },
+      { players: ["E", "F"], type: "singles" },
+    ];
+    const graph = updatePairGraph(courts, {});
+    expect(graph["A,B"]).toBe(1);
+    expect(graph["A,C"]).toBe(1);
+    expect(graph["A,D"]).toBe(1);
+    expect(graph["B,C"]).toBe(1);
+    expect(graph["B,D"]).toBe(1);
+    expect(graph["C,D"]).toBe(1);
+    expect(Object.keys(graph)).toHaveLength(6);
+    expect(graph["E,F"]).toBeUndefined();
+  });
+
+  it("should converge to cover all possible pairs over multiple rotations", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G", "H"], 2);
+    const totalPairs = 28; // C(8,2)
+
+    let rotations = 0;
+    while (Object.keys(state.pairGraph).length < totalPairs && rotations < 20) {
+      state = rotateGame(state);
+      rotations++;
+    }
+
+    expect(Object.keys(state.pairGraph).length).toBe(totalPairs);
+    expect(rotations).toBeLessThan(20);
+  });
+
+  it("should reset pairGraph on startGame (edit participants)", () => {
+    const state = startGame(["A", "B", "C", "D"], 1);
+    expect(Object.keys(state.pairGraph)).toHaveLength(6);
+
+    const fresh = startGame(["A", "B", "C", "D"], 1);
+    expect(Object.keys(fresh.pairGraph)).toHaveLength(6);
+    // Should be a fresh graph, all edges weight 1 (first time)
+    expect(fresh.pairGraph["A,B"]).toBe(1);
+  });
+
+  it("should prefer mixing players from different previous courts on rotation", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G", "H"], 2);
+    // First game courts: [A,B,C,D] and [E,F,G,H] (sorted alphabetically, all ties)
+    const court0Players = new Set(state.courts[0].players);
+    const court1Players = new Set(state.courts[1].players);
+
+    state = rotateGame(state);
+
+    // Each court should now have a mix of players from both original courts
+    for (const court of state.courts) {
+      if (court.type === "doubles") {
+        const fromFirst = court.players.filter(p => court0Players.has(p)).length;
+        const fromSecond = court.players.filter(p => court1Players.has(p)).length;
+        expect(fromFirst).toBeGreaterThan(0);
+        expect(fromSecond).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("should not break singles avoidance rule", () => {
+    const state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+    const previousSingles = state.courts
+      .filter(c => c.type === "singles")
+      .flatMap(c => c.players);
+
+    const rotated = rotateGame(state);
+    const newSingles = rotated.courts
+      .filter(c => c.type === "singles")
+      .flatMap(c => c.players);
+
+    const overlap = previousSingles.filter(p => newSingles.includes(p));
+    expect(overlap).toHaveLength(0);
+  });
+
+  it("should not break rest cycling", () => {
+    const participants = ["A", "B", "C", "D", "E"];
+    let state = startGame(participants, 2);
+    const restOrder: string[] = [state.resting!];
+
+    for (let i = 0; i < 4; i++) {
+      state = rotateGame(state);
+      restOrder.push(state.resting!);
+    }
+
+    expect(restOrder).toEqual(["A", "B", "C", "D", "E"]);
+  });
+
+  it("should not break court size invariants across rotations", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+
+    for (let i = 0; i < 10; i++) {
+      state = rotateGame(state);
+      state.courts.forEach(court => {
+        expect([0, 2, 4]).toContain(court.players.length);
+      });
+    }
+  });
+
+  it("should keep pair weights balanced for 7 players across rotations", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+
+    for (let i = 0; i < 15; i++) {
+      state = rotateGame(state);
+      const weights = Object.values(state.pairGraph) as number[];
+      const max = Math.max(...weights);
+      const min = Math.min(...weights);
+      expect(max - min).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("should cover all 21 pairs for 7 players within reasonable rotations", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+
+    let rotations = 0;
+    while (Object.keys(state.pairGraph).length < 21 && rotations < 20) {
+      state = rotateGame(state);
+      rotations++;
+    }
+
+    expect(Object.keys(state.pairGraph).length).toBe(21);
+    expect(rotations).toBeLessThan(10);
+  });
+
+  it("should select singles that maximize doubles pool diversity", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+    // After first game: singles were [B,C], doubles [D,E,F,G]
+    // FG, EF, EG all have weight 1
+    // Eligible for second rotation singles: [A, D, E, F, G] (B is rest)
+    // Algorithm should pick singles that split up high-weight pairs in doubles pool
+    state = rotateGame(state);
+
+    const prevSingles = state.courts.filter(c => c.type === "singles").flatMap(c => c.players);
+    const prevDoubles = state.courts.filter(c => c.type === "doubles").flatMap(c => c.players);
+
+    // After the fix, singles should include at least one of {E, F, G}
+    // to break up the high-weight pairs from the first game
+    const highWeightPlayers = ["E", "F", "G"];
+    expect(prevSingles.some(p => highWeightPlayers.includes(p))).toBe(true);
+  });
+
+  it("should not let any single pair dominate the weight distribution", () => {
+    let state = startGame(["A", "B", "C", "D", "E", "F", "G"], 2);
+
+    for (let i = 0; i < 20; i++) {
+      state = rotateGame(state);
+      const weights = Object.values(state.pairGraph) as number[];
+      const max = Math.max(...weights);
+      const avg = weights.reduce((s: number, w: number) => s + w, 0) / weights.length;
+
+      if (weights.length === 21) {
+        expect(max - avg).toBeLessThanOrEqual(2.5);
+      }
+    }
   });
 });
