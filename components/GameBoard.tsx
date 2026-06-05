@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Share2 } from "lucide-react";
 import type { GameState } from "@/lib/types";
 import { buildShareUrl } from "@/lib/share";
+import { PairCoverageDialog } from "@/components/PairCoverageDialog";
 
 type GameBoardProps = {
   state: GameState;
@@ -14,6 +15,7 @@ type GameBoardProps = {
 
 export function GameBoard({ state, onRotate, onReset, onEdit }: GameBoardProps) {
   const [copied, setCopied] = useState(false);
+  const [showPairCoverage, setShowPairCoverage] = useState(false);
 
   const handleShare = () => {
     const url = buildShareUrl(state.participants, state.courtCount);
@@ -66,6 +68,12 @@ export function GameBoard({ state, onRotate, onReset, onEdit }: GameBoardProps) 
               Rotate
             </button>
             <button
+              onClick={() => setShowPairCoverage(true)}
+              className="px-4 py-2 border border-black text-sm font-medium hover:bg-black hover:text-white transition-colors"
+            >
+              Pairs
+            </button>
+            <button
               onClick={onEdit}
               className="px-4 py-2 border border-black text-sm font-medium hover:bg-black hover:text-white transition-colors"
             >
@@ -80,6 +88,14 @@ export function GameBoard({ state, onRotate, onReset, onEdit }: GameBoardProps) 
           </div>
         </div>
       </div>
+
+      {showPairCoverage && (
+        <PairCoverageDialog
+          pairGraph={state.pairGraph}
+          participants={state.participants}
+          onClose={() => setShowPairCoverage(false)}
+        />
+      )}
 
       {state.resting && (
         <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr]">

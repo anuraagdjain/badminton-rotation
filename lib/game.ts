@@ -24,7 +24,7 @@ export function updatePairGraph(courts: Court[], pairGraph: Record<string, numbe
 
 export function startGame(participants: string[], courtCount: number): GameState {
   const sorted = [...participants].sort();
-  return buildState(sorted, 0, [], courtCount, {});
+  return buildState(sorted, 0, [], courtCount, {}, []);
 }
 
 export function rotateGame(state: GameState): GameState {
@@ -38,7 +38,7 @@ export function rotateGame(state: GameState): GameState {
     .filter((c) => c.type === "singles")
     .flatMap((c) => c.players);
   const pairGraph = state.pairGraph ?? {};
-  return buildState(state.participants, nextRestIndex, previousSingles, state.courtCount, pairGraph);
+  return buildState(state.participants, nextRestIndex, previousSingles, state.courtCount, pairGraph, state.courts);
 }
 
 export function resetGame(): GameState | null {
@@ -51,6 +51,7 @@ function buildState(
   previousSingles: string[],
   courtCount: number,
   pairGraph: Record<string, number>,
+  previousCourts: Court[],
 ): GameState {
   const maxCapacity = courtCount * 4;
   const excess = Math.max(0, sorted.length - maxCapacity);
@@ -65,7 +66,7 @@ function buildState(
   const players = sorted.filter((p) => !restingPlayers.includes(p));
 
   const courtSizes = calculateCourtSizes(players.length, courtCount);
-  const courts = assignCourts(players, previousSingles, courtSizes, pairGraph);
+  const courts = assignCourts(players, previousSingles, courtSizes, pairGraph, previousCourts);
   const newPairGraph = updatePairGraph(courts, pairGraph);
 
   const newSinglesPlayers = courts
@@ -102,6 +103,7 @@ function assignCourts(
   previousSingles: string[],
   courtSizes: number[],
   pairGraph: Record<string, number>,
+  previousCourts: Court[],
 ): Court[] {
   const courts: Court[] = courtSizes.map((size) => ({
     players: [],
@@ -118,6 +120,13 @@ function assignCourts(
 
   const mustSkipSingles = players.filter((p) => previousSingles.includes(p));
   const eligibleForAny = players.filter((p) => !previousSingles.includes(p));
+
+  const lastOpponentPairs: [string, string][] = [];
+  for (const court of previousCourts) {
+    if (court.type === "doubles" && court.players.length === 4) {
+      lastOpponentPairs.push([court.players[2], court.players[3]]);
+    }
+  }
 
   const getWeight = (a: string, b: string): number => pairGraph[makePairKey(a, b)] ?? 0;
 
@@ -136,20 +145,28 @@ function assignCourts(
 
   if (singlesTotal > 0 && singlesTotal <= eligibleForAny.length) {
     if (singlesTotal === 2) {
-      let best: [string, string] = [eligibleForAny[0], eligibleForAny[1]];
       let bestWeight = Infinity;
+      const tied: [string, string][] = [];
       for (let i = 0; i < eligibleForAny.length; i++) {
         for (let j = i + 1; j < eligibleForAny.length; j++) {
-          const candidate = [eligibleForAny[i], eligibleForAny[j]];
+          const candidate: [string, string] = [eligibleForAny[i], eligibleForAny[j]];
           const pool = players.filter((p) => !candidate.includes(p));
-          const w = computePoolWeight(pool);
-          if (w < bestWeight || (w === bestWeight && candidate.join(",") < best.join(","))) {
+          let w = computePoolWeight(pool);
+          for (const [p1, p2] of lastOpponentPairs) {
+            if (pool.includes(p1) && pool.includes(p2)) {
+              w += 0.5;
+            }
+          }
+          if (w < bestWeight) {
             bestWeight = w;
-            best = [eligibleForAny[i], eligibleForAny[j]];
+            tied.length = 0;
+            tied.push(candidate);
+          } else if (w === bestWeight) {
+            tied.push(candidate);
           }
         }
       }
-      singlesPlayers.push(...best);
+      singlesPlayers.push(...tied[Math.floor(Math.random() * tied.length)]);
     } else {
       singlesPlayers.push(...[...eligibleForAny].sort().slice(0, singlesTotal));
     }
@@ -186,18 +203,20 @@ function assignCourts(
 function pickDoublesCourt(pool: string[], pairGraph: Record<string, number>): string[] {
   const getWeight = (a: string, b: string): number => pairGraph[makePairKey(a, b)] ?? 0;
 
-  const seed = pool
-    .map((p) => ({
-      player: p,
-      totalWeight: pool.reduce((sum, o) => (o !== p ? sum + getWeight(p, o) : sum), 0),
-    }))
-    .sort((a, b) => a.totalWeight - b.totalWeight || a.player.localeCompare(b.player))[0].player;
+  const weightEntries = pool.map((p) => ({
+    player: p,
+    totalWeight: pool.reduce((sum, o) => (o !== p ? sum + getWeight(p, o) : sum), 0),
+  }));
+  const minWeight = Math.min(...weightEntries.map((e) => e.totalWeight));
+  const seedPool = weightEntries.filter((e) => e.totalWeight === minWeight).map((e) => e.player);
+  const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
 
   const remaining1 = pool.filter((p) => p !== seed);
 
-  const partner = remaining1
-    .map((p) => ({ player: p, weight: getWeight(seed, p) }))
-    .sort((a, b) => a.weight - b.weight || a.player.localeCompare(b.player))[0].player;
+  const partnerEntries = remaining1.map((p) => ({ player: p, weight: getWeight(seed, p) }));
+  const minPartnerWeight = Math.min(...partnerEntries.map((e) => e.weight));
+  const partnerPool = partnerEntries.filter((e) => e.weight === minPartnerWeight).map((e) => e.player);
+  const partner = partnerPool[Math.floor(Math.random() * partnerPool.length)];
 
   const remaining2 = remaining1.filter((p) => p !== partner);
 
@@ -205,8 +224,8 @@ function pickDoublesCourt(pool: string[], pairGraph: Record<string, number>): st
     return [seed, partner, ...remaining2];
   }
 
-  let bestOpponents: [string, string] = [remaining2[0], remaining2[1]];
   let bestScore = -Infinity;
+  const tiedOpponents: [string, string][] = [];
 
   for (let i = 0; i < remaining2.length; i++) {
     for (let j = i + 1; j < remaining2.length; j++) {
@@ -219,15 +238,16 @@ function pickDoublesCourt(pool: string[], pairGraph: Record<string, number>): st
         -getWeight(partner, o2) +
         -getWeight(o1, o2);
 
-      if (
-        score > bestScore ||
-        (score === bestScore && `${o1},${o2}` < `${bestOpponents[0]},${bestOpponents[1]}`)
-      ) {
+      if (score > bestScore) {
         bestScore = score;
-        bestOpponents = [o1, o2];
+        tiedOpponents.length = 0;
+        tiedOpponents.push([o1, o2]);
+      } else if (score === bestScore) {
+        tiedOpponents.push([o1, o2]);
       }
     }
   }
 
+  const bestOpponents = tiedOpponents[Math.floor(Math.random() * tiedOpponents.length)];
   return [seed, partner, ...bestOpponents];
 }
