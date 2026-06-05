@@ -43,13 +43,24 @@ A simple web app to manage badminton court rotations for recreational games.
   - Take their **rest turn** if it's their turn
 - This prevents exhausting players with consecutive singles games
 
-### Court Randomization
-- Court assignments are **randomized** on each rotation
-- Ensures everyone gets to play with different partners over time
-- All courts get different players on rotation (not just court 1)
+### Pair Tracking
+- Every doubles court tracks which 6 player pairs shared the court
+- This data is stored as a **pair graph** (bidirectional, weighted by play count)
+- Singles courts do **not** contribute to the pair graph
+- The **Pairs** button shows an n×n table of all pair weights
+  - Red-highlighted cells = pairs that haven't played together yet
+  - Progress bar shows overall coverage
+
+### Pair-Aware Court Assignment
+- Court assignments prioritize **unplayed pairs** over repeating existing ones
+- Singles players are selected to **maximize diversity** in the doubles pool
+- Previous round's opponent pairs get broken up (not repeated)
+- When multiple options are equally good, a **random tiebreaker** avoids deadlock
 
 ### Game Controls
 - **Rotate**: Ends the current round and reassigns courts + rest
+- **Pairs**: Opens the pair coverage table
+- **Edit**: Add/remove players or change court count mid-game
 - **Reset**: Clears all data (with confirmation dialog)
 
 ### Persistence
